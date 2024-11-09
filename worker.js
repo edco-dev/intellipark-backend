@@ -225,5 +225,4 @@ async function getVehicleHistory(date) {
     }
 }
 
-// Execute the action handler
 handleAction();
