@@ -84,9 +84,11 @@ app.get('/api/vehicle-history', async (req, res) => {
         console.error('Error retrieving vehicle history:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
+
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // Use the PORT environment variable, default to 3000 locally
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`Server running at ${PORT}`);
 });
+
