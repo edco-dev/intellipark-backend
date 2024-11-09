@@ -4,26 +4,26 @@ const { workerData, parentPort } = require('worker_threads');
 const admin = require('firebase-admin');
 
 dotenv.config();
+
 // Ensure Firebase Admin SDK is initialized (this block ensures it initializes only once)
 if (!admin.apps.length) {
-// Firebase setup using environment variables
-const serviceAccount = {
-    type: "service_account",
-    project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),  // Correct any newlines in the private key
-    client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    client_id: process.env.FIREBASE_CLIENT_ID,
-    auth_uri: "https://accounts.google.com/o/oauth2/auth",
-    token_uri: "https://oauth2.googleapis.com/token",
-    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-    client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
-};
+    const serviceAccount = {
+        type: "service_account",
+        project_id: process.env.FIREBASE_PROJECT_ID,
+        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        client_id: process.env.FIREBASE_CLIENT_ID,
+        auth_uri: "https://accounts.google.com/o/oauth2/auth",
+        token_uri: "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
+    };
 
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: process.env.FIREBASE_DATABASE_URL
-});
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        databaseURL: process.env.FIREBASE_DATABASE_URL
+    });
 }
 
 const db = admin.firestore();
@@ -57,15 +57,19 @@ async function handleAction() {
 
 // Validation for vehicle
 async function validateVehicle(docId) {
+    if (!docId) {
+        return { message: 'Invalid or missing document ID' };
+    }
+
     try {
-        const docRef = admin.firestore().collection('drivers').doc(docId);
+        const docRef = db.collection('drivers').doc(docId);
         const docSnapshot = await docRef.get();
 
         if (!docSnapshot.exists) {
             return { message: 'Document not found' };
         }
 
-        const vehicleInSnapshot = await admin.firestore().collection('vehiclesIn')
+        const vehicleInSnapshot = await db.collection('vehiclesIn')
             .where('plateNumber', '==', docSnapshot.data().plateNumber)
             .get();
 
@@ -90,7 +94,7 @@ async function validateVehicle(docId) {
 
 // Handle vehicle entry
 async function handleVehicleEntry(vehicleData) {
-    const plateNumber = vehicleData.data?.plateNumber || vehicleData.plateNumber;
+    const plateNumber = vehicleData?.data?.plateNumber || vehicleData?.plateNumber;
 
     if (!plateNumber) {
         return { message: 'Missing plate number.' };
@@ -108,14 +112,14 @@ async function handleVehicleEntry(vehicleData) {
             vehicleColor
         } = vehicleData.data || vehicleData;
 
-        const vehicleOwner = `${firstName} ${middleName} ${lastName}`;
+        const vehicleOwner = `${firstName || ''} ${middleName || ''} ${lastName || ''}`.trim();
         const date = new Date();
         const transactionId = `${date.getTime()}-${plateNumber}`;
         const formattedDate = date.toISOString().split('T')[0];
         const timeIn = date.toLocaleTimeString();
 
-        const vehiclesInRef = admin.firestore().collection('vehiclesIn');
-        const parkingLogRef = admin.firestore().collection('parkingLog');
+        const vehiclesInRef = db.collection('vehiclesIn');
+        const parkingLogRef = db.collection('parkingLog');
 
         const vehiclesInCount = (await vehiclesInRef.get()).size;
         const slotsAvailable = MAX_SLOTS - vehiclesInCount;
@@ -152,14 +156,14 @@ async function handleVehicleEntry(vehicleData) {
 
 // Handle vehicle exit
 async function handleVehicleExit(vehicleData) {
-    const plateNumber = vehicleData.plateNumber || vehicleData.data?.plateNumber;
+    const plateNumber = vehicleData?.plateNumber || vehicleData?.data?.plateNumber;
 
     if (!plateNumber) {
         return { message: 'Missing plate number' };
     }
 
     try {
-        const vehiclesInRef = admin.firestore().collection('vehiclesIn').where('plateNumber', '==', plateNumber);
+        const vehiclesInRef = db.collection('vehiclesIn').where('plateNumber', '==', plateNumber);
         const snapshot = await vehiclesInRef.get();
 
         if (!snapshot.empty) {
@@ -182,9 +186,9 @@ async function handleVehicleExit(vehicleData) {
             };
 
             await doc.ref.delete();
-            await admin.firestore().collection('vehiclesOut').add(vehicleOutData);
+            await db.collection('vehiclesOut').add(vehicleOutData);
 
-            const parkingLogRef = admin.firestore().collection('parkingLog').doc(vehicleData.transactionId);
+            const parkingLogRef = db.collection('parkingLog').doc(vehicleData.transactionId);
             await parkingLogRef.update({ timeOut });
 
             return { message: 'Vehicle checked out successfully', plateNumber };
@@ -199,8 +203,12 @@ async function handleVehicleExit(vehicleData) {
 
 // Get vehicle history
 async function getVehicleHistory(date) {
+    if (!date) {
+        return { message: 'Invalid or missing date' };
+    }
+
     try {
-        const logRef = admin.firestore().collection('parkingLog');
+        const logRef = db.collection('parkingLog');
         const snapshot = await logRef.where('date', '==', date).get();
 
         if (snapshot.empty) {
