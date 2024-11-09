@@ -1,12 +1,27 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const { workerData, parentPort } = require('worker_threads');
 const admin = require('firebase-admin');
 
-// Initialize Firebase Admin SDK in the worker thread (make sure it's not already initialized in the main thread)
+// Ensure Firebase Admin SDK is initialized (this block ensures it initializes only once)
 if (!admin.apps.length) {
-    const serviceAccount = require('./config/serviceAccountKey.json');
+    const serviceAccount = {
+        "type": "service_account",
+        "project_id": process.env.FIREBASE_PROJECT_ID,
+        "private_key_id": process.env.FIREBASE_PRIVATE_KEY_ID,
+        "private_key": process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        "client_email": process.env.FIREBASE_CLIENT_EMAIL,
+        "client_id": process.env.FIREBASE_CLIENT_ID,
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": process.env.FIREBASE_CLIENT_X509_CERT_URL
+    };
+
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
-        databaseURL: "https://intellipark-db283.firebaseapp.com"
+        databaseURL: process.env.FIREBASE_DATABASE_URL  // Ensure you use the correct database URL
     });
 }
 
@@ -36,6 +51,7 @@ async function handleAction() {
     parentPort.postMessage(result); // Return the result to the main thread
 }
 
+// Validation for vehicle
 async function validateVehicle(docId) {
     try {
         const docRef = admin.firestore().collection('drivers').doc(docId);
@@ -68,6 +84,7 @@ async function validateVehicle(docId) {
     }
 }
 
+// Handle vehicle entry
 async function handleVehicleEntry(vehicleData) {
     const plateNumber = vehicleData.data?.plateNumber || vehicleData.plateNumber;
 
@@ -119,20 +136,19 @@ async function handleVehicleEntry(vehicleData) {
                 timeOut: null
             });
 
-            return { message: 'Vehicle checked in successfully', data: vehicleInData };
-        } else if (vehicleInSnapshot.empty && status) {
-            return { message: 'Vehicle is already marked as "out". Please use the exit endpoint instead.' };
-        } else {
-            return { message: 'No available slots for parking or vehicle already inside.' };
+            return { message: 'Vehicle entered successfully', plateNumber };
         }
+
+        return { message: 'Parking lot full or vehicle already entered' };
     } catch (error) {
         console.error('Error handling vehicle entry:', error);
         return { message: 'Internal server error' };
     }
 }
 
+// Handle vehicle exit
 async function handleVehicleExit(vehicleData) {
-    const plateNumber = vehicleData.data?.plateNumber || vehicleData.plateNumber;
+    const plateNumber = vehicleData.plateNumber || vehicleData.data?.plateNumber;
 
     if (!plateNumber) {
         return { message: 'Missing plate number' };
@@ -177,6 +193,7 @@ async function handleVehicleExit(vehicleData) {
     }
 }
 
+// Get vehicle history
 async function getVehicleHistory(date) {
     try {
         const logRef = admin.firestore().collection('parkingLog');

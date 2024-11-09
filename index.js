@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const { Worker } = require('worker_threads');
 const bodyParser = require('body-parser');
@@ -6,6 +9,7 @@ const cors = require('cors');
 
 const app = express();
 
+// Middleware for CORS
 app.use(cors());
 
 // Firebase setup using environment variables
@@ -23,21 +27,24 @@ const serviceAccount = {
     "universe_domain": "googleapis.com"
 };
 
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: process.env.FIREBASE_DATABASE_URL  // Use your Firebase Realtime Database URL here
-});
+// Initialize Firebase Admin SDK
+if (!admin.apps.length) {
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        databaseURL: process.env.FIREBASE_DATABASE_URL  // Ensure you use the correct database URL
+    });
+}
 
+// Middleware to parse JSON bodies
 app.use(bodyParser.json());
 
+// Maximum parking slots allowed
 const MAX_SLOTS = 50;
 
 // Function to run in a worker thread
 function runWorker(workerData) {
     return new Promise((resolve, reject) => {
-        const worker = new Worker('./worker.js', {
-            workerData
-        });
+        const worker = new Worker('./worker.js', { workerData });
 
         worker.on('message', resolve);
         worker.on('error', reject);
@@ -99,8 +106,8 @@ app.get('/api/vehicle-history', async (req, res) => {
     }
 });
 
+// Set up the server to listen on the configured port
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
     const host = process.env.NODE_ENV === 'production' ? 'https://your-deployed-domain.com' : 'http://localhost';
     console.log(`Server running at ${host}:${PORT}`);
