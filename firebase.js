@@ -1,12 +1,7 @@
-// // firebase.js
-// const admin = require('firebase-admin');
-// const serviceAccount = require('/api/config/serviceAccountKey.json');  // Replace with actual path
+// firebase.js
+const admin = require('firebase-admin');
 
-// admin.initializeApp({
-//     credential: admin.credential.cert(serviceAccount),
-//     databaseURL: 'https://intellipark-db283.firebaseio.com'  // Replace with your actual Firebase Database URL
-// });
+// Export the Firestore instance to be used elsewhere
+const db = admin.firestore();
 
-// const db = admin.firestore();
-
-// module.exports = { db };
+module.exports = { db };
