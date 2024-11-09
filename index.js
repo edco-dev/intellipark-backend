@@ -2,13 +2,11 @@ const express = require('express');
 const { Worker } = require('worker_threads');
 const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
-
-
 const cors = require('cors');
-app.use(cors());
 
 const app = express();
-app.use(bodyParser.json());
+
+app.use(cors());
 
 // Firebase setup
 const serviceAccount = require('./config/serviceAccountKey.json');
@@ -16,6 +14,8 @@ admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     databaseURL: "https://intellipark-db283.firebaseapp.com"
 });
+
+app.use(bodyParser.json());
 
 const MAX_SLOTS = 50;
 
