@@ -35,4 +35,8 @@ coverage/
 # Package lock files
 package-lock.json  # Uncomment if you want to keep it, needed for npm install
 yarn.lock          # Uncomment if you are using Yarn instead of npm
+<<<<<<< HEAD
 serviceAccountKet.json
+=======
+api/config/serviceAccountKey.json
+>>>>>>> 3f13cdd (remove pushing key)
