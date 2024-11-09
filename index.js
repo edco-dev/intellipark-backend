@@ -1,6 +1,5 @@
 // Load environment variables from .env file
-require('dotenv').config();
-
+const dotenv = require('dotenv');
 const express = require('express');
 const { Worker } = require('worker_threads');
 const bodyParser = require('body-parser');
@@ -12,28 +11,29 @@ const app = express();
 // Middleware for CORS
 app.use(cors());
 
+dotenv.config();
 // Firebase setup using environment variables
 const serviceAccount = {
-    "type": "service_account",
-    "project_id": process.env.FIREBASE_PROJECT_ID,
-    "private_key_id": process.env.FIREBASE_PRIVATE_KEY_ID,
-    "private_key": process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),  // Ensure newline characters are correctly parsed
-    "client_email": process.env.FIREBASE_CLIENT_EMAIL,
-    "client_id": process.env.FIREBASE_CLIENT_ID,
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": process.env.FIREBASE_CLIENT_X509_CERT_URL,
-    "universe_domain": "googleapis.com"
+    type: "service_account",
+    project_id: process.env.FIREBASE_PROJECT_ID,
+    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),  // Correct any newlines in the private key
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    client_id: process.env.FIREBASE_CLIENT_ID,
+    auth_uri: "https://accounts.google.com/o/oauth2/auth",
+    token_uri: "https://oauth2.googleapis.com/token",
+    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+    client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
 };
 
 // Initialize Firebase Admin SDK
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        databaseURL: process.env.FIREBASE_DATABASE_URL  // Ensure you use the correct database URL
-    });
-}
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: process.env.FIREBASE_DATABASE_URL
+});
+
+const db = admin.firestore();
+module.exports = { db };
 
 // Middleware to parse JSON bodies
 app.use(bodyParser.json());
