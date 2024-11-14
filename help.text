@@ -1,0 +1,30 @@
+https://console.firebase.google.com/u/0/project/intellipark-db283/firestore/databases/-default-/data/~2Fdrivers~2F0XBGHUT0DJJ6ANe5MW0V?fb_gclid=Cj0KCQiArby5BhCDARIsAIJvjIQMtH2ZQ7Xzez3qK-YY9aqvuabV7h99fjfY6D0y7xhSuCV2qhG2kacaAvQuEALw_wcB
+
+http://localhost:3000/api/validate
+{"docId":"yAJsbY1VbaqKRFbYYGXi"}
+
+http://localhost:3000/api/vehicle-entry
+{
+"firstName": "OOOOOOO",
+"middleName": "OOOOOOO",
+"lastName": "OOOOOOO",
+"contactNumber": "OOOOOO",
+"userType": "OOOOOO",
+"vehicleType": "OOOOOO",
+"status": false,
+"vehicleColor": "OOOOOOO",
+"plateNumber": "OOOOOOO"
+}
+
+http://localhost:3000/api/vehicle-exit
+{
+"firstName": "OOOOOOO",
+"middleName": "OOOOOOO",
+"lastName": "OOOOOOO",
+"contactNumber": "OOOOOO",
+"userType": "OOOOOO",
+"vehicleType": "OOOOOO",
+"status": true,
+"vehicleColor": "OOOOOOO",
+"plateNumber": "OOOOOOO"
+}
