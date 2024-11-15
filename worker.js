@@ -93,6 +93,8 @@ async function validateVehicle(docId) {
 }
 
 // Handle vehicle entry
+const { DateTime } = require('luxon');
+
 async function handleVehicleEntry(vehicleData) {
     const plateNumber = vehicleData?.data?.plateNumber || vehicleData?.plateNumber;
 
@@ -113,10 +115,12 @@ async function handleVehicleEntry(vehicleData) {
         } = vehicleData.data || vehicleData;
 
         const vehicleOwner = `${firstName || ''} ${middleName || ''} ${lastName || ''}`.trim();
-        const date = new Date();
-        const transactionId = `${date.getTime()}-${plateNumber}`;
-        const formattedDate = date.toISOString().split('T')[0];
-        const timeIn = date.toLocaleTimeString();
+        const date = DateTime.now().setZone('Asia/Manila'); // Set to Philippine time
+        const transactionId = `${date.toMillis()}-${plateNumber}`;
+        const formattedDate = date.toISODate(); // Date in YYYY-MM-DD format
+        const timeIn = date.toFormat('hh:mm:ss a'); // Time in 12-hour format
+
+        console.log('Vehicle Entry Time:', timeIn); // Debug log
 
         const vehiclesInRef = db.collection('vehiclesIn');
         const parkingLogRef = db.collection('parkingLog');
@@ -169,19 +173,13 @@ async function handleVehicleExit(vehicleData) {
         if (!snapshot.empty) {
             const doc = snapshot.docs[0];
             const vehicleData = doc.data();
-            const date = new Date();
-            const timeOut = date.toLocaleTimeString();
+            const date = DateTime.now().setZone('Asia/Manila'); // Set to Philippine time
+            const timeOut = date.toFormat('hh:mm:ss a'); // Time in 12-hour format
+
+            console.log('Vehicle Exit Time:', timeOut); // Debug log
 
             const vehicleOutData = {
-                transactionId: vehicleData.transactionId,
-                plateNumber,
-                vehicleOwner: vehicleData.vehicleOwner,
-                contactNumber: vehicleData.contactNumber,
-                userType: vehicleData.userType,
-                vehicleType: vehicleData.vehicleType,
-                vehicleColor: vehicleData.vehicleColor,
-                date: vehicleData.date,
-                timeIn: vehicleData.timeIn,
+                ...vehicleData,
                 timeOut
             };
 
@@ -201,15 +199,21 @@ async function handleVehicleExit(vehicleData) {
     }
 }
 
+
 // Get vehicle history
+
+
 async function getVehicleHistory(date) {
     if (!date) {
         return { message: 'Invalid or missing date' };
     }
 
     try {
+        // Parse the input date in the 'Asia/Manila' timezone to ensure consistency
+        const formattedDate = DateTime.fromISO(date, { zone: 'Asia/Manila' }).toISODate();
+
         const logRef = db.collection('parkingLog');
-        const snapshot = await logRef.where('date', '==', date).get();
+        const snapshot = await logRef.where('date', '==', formattedDate).get();
 
         if (snapshot.empty) {
             return { message: 'No records found for the specified date' };
@@ -224,5 +228,6 @@ async function getVehicleHistory(date) {
         return { message: 'Internal server error' };
     }
 }
+
 
 handleAction();
