@@ -17,7 +17,7 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-arduino()
+// arduino()
 
 dotenv.config();
 // Firebase setup using environment variables
