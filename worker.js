@@ -31,6 +31,20 @@ module.exports = { db };
 
 const MAX_SLOTS = 50;
 
+// Helper function to get Philippine Time
+function getPhilippineTime() {
+    const date = new Date();
+    // Calculate GMT+8
+    const offset = 8 * 60; // Offset in minutes
+    const localDate = new Date(date.getTime() + offset * 60 * 1000);
+
+    return {
+        date: localDate.toISOString().split('T')[0], // Format: YYYY-MM-DD
+        time: localDate.toLocaleTimeString('en-US', { hour12: true }) // Format: hh:mm:ss AM/PM
+    };
+}
+
+// Main action handler
 async function handleAction() {
     const { action } = workerData;
     let result;
@@ -113,10 +127,8 @@ async function handleVehicleEntry(vehicleData) {
         } = vehicleData.data || vehicleData;
 
         const vehicleOwner = `${firstName || ''} ${middleName || ''} ${lastName || ''}`.trim();
-        const date = new Date();
-        const transactionId = `${date.getTime()}-${plateNumber}`;
-        const formattedDate = date.toISOString().split('T')[0];
-        const timeIn = date.toLocaleTimeString();
+        const { date: formattedDate, time: timeIn } = getPhilippineTime();
+        const transactionId = `${Date.now()}-${plateNumber}`;
 
         const vehiclesInRef = db.collection('vehiclesIn');
         const parkingLogRef = db.collection('parkingLog');
@@ -169,19 +181,10 @@ async function handleVehicleExit(vehicleData) {
         if (!snapshot.empty) {
             const doc = snapshot.docs[0];
             const vehicleData = doc.data();
-            const date = new Date();
-            const timeOut = date.toLocaleTimeString();
+            const { time: timeOut } = getPhilippineTime();
 
             const vehicleOutData = {
-                transactionId: vehicleData.transactionId,
-                plateNumber,
-                vehicleOwner: vehicleData.vehicleOwner,
-                contactNumber: vehicleData.contactNumber,
-                userType: vehicleData.userType,
-                vehicleType: vehicleData.vehicleType,
-                vehicleColor: vehicleData.vehicleColor,
-                date: vehicleData.date,
-                timeIn: vehicleData.timeIn,
+                ...vehicleData,
                 timeOut
             };
 
