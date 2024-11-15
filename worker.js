@@ -2,54 +2,27 @@
 const dotenv = require('dotenv');
 const { workerData, parentPort } = require('worker_threads');
 const admin = require('firebase-admin');
-const { DateTime } = require('luxon');
-const winston = require('winston');
 
 dotenv.config();
 
-// Logger setup
-const logger = winston.createLogger({
-    level: 'error',
-    format: winston.format.json(),
-    transports: [new winston.transports.File({ filename: 'error.log' })],
-});
-
-// Validate environment variables
-const requiredEnvKeys = [
-    'FIREBASE_PROJECT_ID',
-    'FIREBASE_PRIVATE_KEY_ID',
-    'FIREBASE_PRIVATE_KEY',
-    'FIREBASE_CLIENT_EMAIL',
-    'FIREBASE_CLIENT_ID',
-    'FIREBASE_CLIENT_X509_CERT_URL',
-    'FIREBASE_DATABASE_URL',
-];
-
-for (const key of requiredEnvKeys) {
-    if (!process.env[key]) {
-        logger.error(`Missing environment variable: ${key}`);
-        process.exit(1);
-    }
-}
-
-// Firebase Admin SDK initialization
+// Ensure Firebase Admin SDK is initialized (this block ensures it initializes only once)
 if (!admin.apps.length) {
     const serviceAccount = {
-        type: 'service_account',
+        type: "service_account",
         project_id: process.env.FIREBASE_PROJECT_ID,
         private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
         private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
         client_id: process.env.FIREBASE_CLIENT_ID,
-        auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-        token_uri: 'https://oauth2.googleapis.com/token',
-        auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
-        client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
+        auth_uri: "https://accounts.google.com/o/oauth2/auth",
+        token_uri: "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
     };
 
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
-        databaseURL: process.env.FIREBASE_DATABASE_URL,
+        databaseURL: process.env.FIREBASE_DATABASE_URL
     });
 }
 
@@ -58,39 +31,28 @@ module.exports = { db };
 
 const MAX_SLOTS = 50;
 
-// Main handler
 async function handleAction() {
     const { action } = workerData;
     let result;
 
-    try {
-        switch (action) {
-            case 'validate':
-                result = await validateVehicle(workerData.docId);
-                break;
-            case 'vehicle-entry':
-                result = await handleVehicleEntry(workerData.vehicleData);
-                break;
-            case 'vehicle-exit':
-                result = await handleVehicleExit(workerData.vehicleData);
-                break;
-            case 'vehicle-history':
-                result = await getVehicleHistory(workerData.date);
-                break;
-            default:
-                result = { message: 'Unknown action' };
-        }
-    } catch (error) {
-        logger.error(`Error handling action: ${action}`, error);
-        result = { message: 'Internal server error' };
+    switch (action) {
+        case 'validate':
+            result = await validateVehicle(workerData.docId);
+            break;
+        case 'vehicle-entry':
+            result = await handleVehicleEntry(workerData.vehicleData);
+            break;
+        case 'vehicle-exit':
+            result = await handleVehicleExit(workerData.vehicleData);
+            break;
+        case 'vehicle-history':
+            result = await getVehicleHistory(workerData.date);
+            break;
+        default:
+            result = { message: 'Unknown action' };
     }
 
     parentPort.postMessage(result); // Return the result to the main thread
-}
-
-// Helper function: Get Manila time
-function getManilaTime() {
-    return DateTime.now().setZone('Asia/Manila');
 }
 
 // Validation for vehicle
@@ -107,8 +69,7 @@ async function validateVehicle(docId) {
             return { message: 'Document not found' };
         }
 
-        const vehicleInSnapshot = await db
-            .collection('vehiclesIn')
+        const vehicleInSnapshot = await db.collection('vehiclesIn')
             .where('plateNumber', '==', docSnapshot.data().plateNumber)
             .get();
 
@@ -116,28 +77,19 @@ async function validateVehicle(docId) {
             return {
                 message: 'Vehicle is currently parked. Proceed to exit.',
                 data: docSnapshot.data(),
-                action: 'exit',
+                action: 'exit'
             };
         } else {
             return {
                 message: 'Vehicle can enter.',
                 data: docSnapshot.data(),
-                action: 'enter',
+                action: 'enter'
             };
         }
     } catch (error) {
-        logger.error('Error validating document', error);
+        console.error('Error validating document:', error);
         return { message: 'Internal server error' };
     }
-}
-
-// Helper function: Check slot availability
-async function isSlotAvailable(vehiclesInRef, plateNumber) {
-    const vehiclesInCount = (await vehiclesInRef.get()).size;
-    const slotsAvailable = MAX_SLOTS - vehiclesInCount;
-
-    const vehicleInSnapshot = await vehiclesInRef.where('plateNumber', '==', plateNumber).get();
-    return { slotsAvailable, vehicleExists: !vehicleInSnapshot.empty };
 }
 
 // Handle vehicle entry
@@ -157,21 +109,23 @@ async function handleVehicleEntry(vehicleData) {
             userType,
             vehicleType,
             status,
-            vehicleColor,
+            vehicleColor
         } = vehicleData.data || vehicleData;
 
         const vehicleOwner = `${firstName || ''} ${middleName || ''} ${lastName || ''}`.trim();
-        const now = getManilaTime();
-        const transactionId = `${now.toMillis()}-${plateNumber}`;
-        const formattedDate = now.toISODate();
-        const timeIn = now.toLocaleString(DateTime.TIME_24_SIMPLE);
+        const date = new Date();
+        const transactionId = `${date.getTime()}-${plateNumber}`;
+        const formattedDate = date.toISOString().split('T')[0];
+        const timeIn = date.toLocaleTimeString();
 
         const vehiclesInRef = db.collection('vehiclesIn');
         const parkingLogRef = db.collection('parkingLog');
 
-        const { slotsAvailable, vehicleExists } = await isSlotAvailable(vehiclesInRef, plateNumber);
+        const vehiclesInCount = (await vehiclesInRef.get()).size;
+        const slotsAvailable = MAX_SLOTS - vehiclesInCount;
 
-        if (!status && slotsAvailable > 0 && !vehicleExists) {
+        const vehicleInSnapshot = await vehiclesInRef.where('plateNumber', '==', plateNumber).get();
+        if (!status && slotsAvailable > 0 && vehicleInSnapshot.empty) {
             const vehicleInData = {
                 transactionId,
                 plateNumber,
@@ -181,13 +135,13 @@ async function handleVehicleEntry(vehicleData) {
                 vehicleType,
                 vehicleColor,
                 date: formattedDate,
-                timeIn,
+                timeIn
             };
 
             await vehiclesInRef.doc(transactionId).set(vehicleInData);
             await parkingLogRef.doc(transactionId).set({
                 ...vehicleInData,
-                timeOut: null,
+                timeOut: null
             });
 
             return { message: 'Vehicle entered successfully', plateNumber };
@@ -195,7 +149,7 @@ async function handleVehicleEntry(vehicleData) {
 
         return { message: 'Parking lot full or vehicle already entered' };
     } catch (error) {
-        logger.error('Error handling vehicle entry', error);
+        console.error('Error handling vehicle entry:', error);
         return { message: 'Internal server error' };
     }
 }
@@ -215,12 +169,20 @@ async function handleVehicleExit(vehicleData) {
         if (!snapshot.empty) {
             const doc = snapshot.docs[0];
             const vehicleData = doc.data();
-            const now = getManilaTime();
-            const timeOut = now.toLocaleString(DateTime.TIME_24_SIMPLE);
+            const date = new Date();
+            const timeOut = date.toLocaleTimeString();
 
             const vehicleOutData = {
-                ...vehicleData,
-                timeOut,
+                transactionId: vehicleData.transactionId,
+                plateNumber,
+                vehicleOwner: vehicleData.vehicleOwner,
+                contactNumber: vehicleData.contactNumber,
+                userType: vehicleData.userType,
+                vehicleType: vehicleData.vehicleType,
+                vehicleColor: vehicleData.vehicleColor,
+                date: vehicleData.date,
+                timeIn: vehicleData.timeIn,
+                timeOut
             };
 
             await doc.ref.delete();
@@ -234,7 +196,7 @@ async function handleVehicleExit(vehicleData) {
             return { message: 'Vehicle not found in the parking area' };
         }
     } catch (error) {
-        logger.error('Error handling vehicle exit', error);
+        console.error('Error handling vehicle exit:', error);
         return { message: 'Internal server error' };
     }
 }
@@ -258,7 +220,7 @@ async function getVehicleHistory(date) {
 
         return { message: 'Records retrieved successfully', data: historyData };
     } catch (error) {
-        logger.error('Error retrieving historical data', error);
+        console.error('Error retrieving historical data:', error);
         return { message: 'Internal server error' };
     }
 }
