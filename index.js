@@ -10,8 +10,14 @@ const { arduino, openSlot, closeSlot, slotStatus } = require('./arduino')
 const app = express();
 
 // Middleware for CORS
-app.use(cors());
-arduino()
+// const corsOptions = {
+//    origin: 'http://localhost:1234', // Replace with your frontend’s port
+//    methods: ['GET', 'POST'],
+//    allowedHeaders: ['Content-Type']
+// };
+// app.use(cors(corsOptions));
+
+// arduino()
 
 dotenv.config();
 // Firebase setup using environment variables
