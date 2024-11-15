@@ -88,9 +88,8 @@ async function handleAction() {
     parentPort.postMessage(result); // Return the result to the main thread
 }
 
-// Helper function: Get Manila time
 function getManilaTime() {
-    return DateTime.now().setZone('Asia/Manila');
+    return DateTime.now().setZone('Asia/Manila'); // Set time zone to Manila
 }
 
 // Validation for vehicle
@@ -161,17 +160,19 @@ async function handleVehicleEntry(vehicleData) {
         } = vehicleData.data || vehicleData;
 
         const vehicleOwner = `${firstName || ''} ${middleName || ''} ${lastName || ''}`.trim();
-        const now = getManilaTime();
-        const transactionId = `${now.toMillis()}-${plateNumber}`;
-        const formattedDate = now.toISODate();
-        const timeIn = now.toLocaleString(DateTime.TIME_24_SIMPLE);
+        const now = getManilaTime(); // Get Manila time
+        const transactionId = `${now.toMillis()}-${plateNumber}`; // Unique ID based on time and plate number
+        const formattedDate = now.toISODate(); // ISO date (e.g., "2024-11-15")
+        const timeIn = now.toFormat('hh:mm:ss a'); // Formatted time (e.g., "10:01:00 PM")
 
         const vehiclesInRef = db.collection('vehiclesIn');
         const parkingLogRef = db.collection('parkingLog');
 
-        const { slotsAvailable, vehicleExists } = await isSlotAvailable(vehiclesInRef, plateNumber);
+        const vehiclesInCount = (await vehiclesInRef.get()).size;
+        const slotsAvailable = MAX_SLOTS - vehiclesInCount;
 
-        if (!status && slotsAvailable > 0 && !vehicleExists) {
+        const vehicleInSnapshot = await vehiclesInRef.where('plateNumber', '==', plateNumber).get();
+        if (!status && slotsAvailable > 0 && vehicleInSnapshot.empty) {
             const vehicleInData = {
                 transactionId,
                 plateNumber,
@@ -195,10 +196,11 @@ async function handleVehicleEntry(vehicleData) {
 
         return { message: 'Parking lot full or vehicle already entered' };
     } catch (error) {
-        logger.error('Error handling vehicle entry', error);
+        console.error('Error handling vehicle entry:', error);
         return { message: 'Internal server error' };
     }
 }
+
 
 // Handle vehicle exit
 async function handleVehicleExit(vehicleData) {
@@ -215,8 +217,8 @@ async function handleVehicleExit(vehicleData) {
         if (!snapshot.empty) {
             const doc = snapshot.docs[0];
             const vehicleData = doc.data();
-            const now = getManilaTime();
-            const timeOut = now.toLocaleString(DateTime.TIME_24_SIMPLE);
+            const now = getManilaTime(); // Get Manila time
+            const timeOut = now.toFormat('hh:mm:ss a'); // Formatted time (e.g., "10:01:00 PM")
 
             const vehicleOutData = {
                 ...vehicleData,
@@ -234,7 +236,7 @@ async function handleVehicleExit(vehicleData) {
             return { message: 'Vehicle not found in the parking area' };
         }
     } catch (error) {
-        logger.error('Error handling vehicle exit', error);
+        console.error('Error handling vehicle exit:', error);
         return { message: 'Internal server error' };
     }
 }
