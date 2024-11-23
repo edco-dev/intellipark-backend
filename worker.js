@@ -116,7 +116,9 @@ async function handleVehicleEntry(vehicleData) {
         const date = new Date();
         const transactionId = `${date.getTime()}-${plateNumber}`;
         const formattedDate = date.toISOString().split('T')[0];
-        const timeIn = date.toLocaleTimeString();
+
+        // Use the Philippine Time Zone (PHT - UTC+8)
+        const timeIn = date.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
 
         const vehiclesInRef = db.collection('vehiclesIn');
         const parkingLogRef = db.collection('parkingLog');
@@ -161,6 +163,7 @@ async function handleVehicleEntry(vehicleData) {
 }
 
 
+
 // Handle vehicle exit
 async function handleVehicleExit(vehicleData) {
     const plateNumber = vehicleData?.plateNumber || vehicleData?.data?.plateNumber;
@@ -177,7 +180,9 @@ async function handleVehicleExit(vehicleData) {
             const doc = snapshot.docs[0];
             const vehicleData = doc.data();
             const date = new Date();
-            const timeOut = date.toLocaleTimeString();
+            
+            // Use the Philippine Time Zone (PHT - UTC+8)
+            const timeOut = date.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
 
             const vehicleOutData = {
                 transactionId: vehicleData.transactionId,
@@ -207,6 +212,7 @@ async function handleVehicleExit(vehicleData) {
         return { message: 'Internal server error' };
     }
 }
+
 
 // Get vehicle history
 async function getVehicleHistory(date) {
