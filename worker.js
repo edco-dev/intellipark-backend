@@ -29,22 +29,8 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 module.exports = { db };
 
-const MAX_SLOTS = 50;
+const MAX_SLOTS = 5;
 
-// Helper function to get Philippine Time
-function getPhilippineTime() {
-    const date = new Date();
-    // Calculate GMT+8
-    const offset = 8 * 60; // Offset in minutes
-    const localDate = new Date(date.getTime() + offset * 60 * 1000);
-
-    return {
-        date: localDate.toISOString().split('T')[0], // Format: YYYY-MM-DD
-        time: localDate.toLocaleTimeString('en-US', { hour12: true }) // Format: hh:mm:ss AM/PM
-    };
-}
-
-// Main action handler
 async function handleAction() {
     const { action } = workerData;
     let result;
@@ -127,17 +113,24 @@ async function handleVehicleEntry(vehicleData) {
         } = vehicleData.data || vehicleData;
 
         const vehicleOwner = `${firstName || ''} ${middleName || ''} ${lastName || ''}`.trim();
-        const { date: formattedDate, time: timeIn } = getPhilippineTime();
-        const transactionId = `${Date.now()}-${plateNumber}`;
+        const date = new Date();
+        const transactionId = `${date.getTime()}-${plateNumber}`;
+        const formattedDate = date.toISOString().split('T')[0];
+        const timeIn = date.toLocaleTimeString();
 
         const vehiclesInRef = db.collection('vehiclesIn');
         const parkingLogRef = db.collection('parkingLog');
 
+        // Check if there are already 5 vehicles in the 'vehiclesIn' collection
         const vehiclesInCount = (await vehiclesInRef.get()).size;
-        const slotsAvailable = MAX_SLOTS - vehiclesInCount;
+        
 
+        // If the parking lot is full or the vehicle is already in the lot, reject the entry
         const vehicleInSnapshot = await vehiclesInRef.where('plateNumber', '==', plateNumber).get();
-        if (!status && slotsAvailable > 0 && vehicleInSnapshot.empty) {
+        if (vehiclesInCount >= MAX_SLOTS) {
+            return { message: 'Parking lot full. No available slots for new vehicles.' };
+        }
+        if (!status && vehicleInSnapshot.empty) {
             const vehicleInData = {
                 transactionId,
                 plateNumber,
@@ -150,6 +143,7 @@ async function handleVehicleEntry(vehicleData) {
                 timeIn
             };
 
+            // Add vehicle to vehiclesIn collection
             await vehiclesInRef.doc(transactionId).set(vehicleInData);
             await parkingLogRef.doc(transactionId).set({
                 ...vehicleInData,
@@ -159,12 +153,13 @@ async function handleVehicleEntry(vehicleData) {
             return { message: 'Vehicle entered successfully', plateNumber };
         }
 
-        return { message: 'Parking lot full or vehicle already entered' };
+        return { message: 'Vehicle is already parked, or parking lot full.' };
     } catch (error) {
         console.error('Error handling vehicle entry:', error);
         return { message: 'Internal server error' };
     }
 }
+
 
 // Handle vehicle exit
 async function handleVehicleExit(vehicleData) {
@@ -181,10 +176,19 @@ async function handleVehicleExit(vehicleData) {
         if (!snapshot.empty) {
             const doc = snapshot.docs[0];
             const vehicleData = doc.data();
-            const { time: timeOut } = getPhilippineTime();
+            const date = new Date();
+            const timeOut = date.toLocaleTimeString();
 
             const vehicleOutData = {
-                ...vehicleData,
+                transactionId: vehicleData.transactionId,
+                plateNumber,
+                vehicleOwner: vehicleData.vehicleOwner,
+                contactNumber: vehicleData.contactNumber,
+                userType: vehicleData.userType,
+                vehicleType: vehicleData.vehicleType,
+                vehicleColor: vehicleData.vehicleColor,
+                date: vehicleData.date,
+                timeIn: vehicleData.timeIn,
                 timeOut
             };
 
