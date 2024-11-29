@@ -108,7 +108,7 @@ async function handleVehicleEntry(vehicleData) {
             lastName,
             contactNumber,
             userType,
-            vehicleType, // Assume vehicleType will hold "2-wheeler" or "4-wheeler"
+            vehicleType, // Assume vehicleType will hold "2 Wheels" or "4 Wheels"
             status,
             vehicleColor
         } = vehicleData.data || vehicleData;
@@ -120,8 +120,8 @@ async function handleVehicleEntry(vehicleData) {
         const timeIn = date.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
 
         // Determine the appropriate collection and max slots based on vehicle type
-        const collectionName = vehicleType === '2-wheeler' ? 'vehicleTwo' : 'vehicleFour';
-        const maxSlots = vehicleType === '2-wheeler' ? MAX_TWO_WHEEL_SLOTS : MAX_FOUR_WHEEL_SLOTS;
+        const collectionName = vehicleType === '2 Wheels' ? 'vehicleTwo' : 'vehicleFour';
+        const maxSlots = vehicleType === '2 Wheels' ? MAX_TWO_WHEEL_SLOTS : MAX_FOUR_WHEEL_SLOTS;
 
         const vehiclesInRef = db.collection('vehiclesIn');
         const specificVehicleRef = db.collection(collectionName);
@@ -188,7 +188,7 @@ async function handleVehicleExit(vehicleData) {
             const timeOut = date.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
 
             const vehicleType = vehicleData.vehicleType;
-            const collectionName = vehicleType === '2-wheeler' ? 'vehicleTwo' : 'vehicleFour';
+            const collectionName = vehicleType === '2 Wheels' ? 'vehicleTwo' : 'vehicleFour';
 
             // Remove from vehiclesIn and specific (2-wheel/4-wheel) collections
             await doc.ref.delete();
