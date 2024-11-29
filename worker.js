@@ -29,7 +29,8 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 module.exports = { db };
 
-const MAX_SLOTS = 5;
+const MAX_TWO_WHEEL_SLOTS = 5;
+const MAX_FOUR_WHEEL_SLOTS = 5;
 
 async function handleAction() {
     const { action } = workerData;
@@ -107,7 +108,7 @@ async function handleVehicleEntry(vehicleData) {
             lastName,
             contactNumber,
             userType,
-            vehicleType,
+            vehicleType, // Assume vehicleType will hold "2-wheeler" or "4-wheeler"
             status,
             vehicleColor
         } = vehicleData.data || vehicleData;
@@ -116,22 +117,26 @@ async function handleVehicleEntry(vehicleData) {
         const date = new Date();
         const transactionId = `${date.getTime()}-${plateNumber}`;
         const formattedDate = date.toISOString().split('T')[0];
-
-        // Use the Philippine Time Zone (PHT - UTC+8)
         const timeIn = date.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
 
+        // Determine the appropriate collection and max slots based on vehicle type
+        const collectionName = vehicleType === '2-wheeler' ? 'vehicleTwo' : 'vehicleFour';
+        const maxSlots = vehicleType === '2-wheeler' ? MAX_TWO_WHEEL_SLOTS : MAX_FOUR_WHEEL_SLOTS;
+
         const vehiclesInRef = db.collection('vehiclesIn');
+        const specificVehicleRef = db.collection(collectionName);
         const parkingLogRef = db.collection('parkingLog');
 
-        // Check if there are already 5 vehicles in the 'vehiclesIn' collection
-        const vehiclesInCount = (await vehiclesInRef.get()).size;
-        
-
-        // If the parking lot is full or the vehicle is already in the lot, reject the entry
+        // Check total count in the specific collection (2-wheel or 4-wheel)
+        const vehicleCount = (await specificVehicleRef.get()).size;
         const vehicleInSnapshot = await vehiclesInRef.where('plateNumber', '==', plateNumber).get();
-        if (vehiclesInCount >= MAX_SLOTS) {
-            return { message: 'Parking lot full. No available slots for new vehicles.' };
+
+        // Slot limit check
+        if (vehicleCount >= maxSlots) {
+            return { message: `Parking lot full for ${vehicleType}. No available slots.` };
         }
+
+        // Prevent duplicate entries for the same vehicle
         if (!status && vehicleInSnapshot.empty) {
             const vehicleInData = {
                 transactionId,
@@ -145,8 +150,9 @@ async function handleVehicleEntry(vehicleData) {
                 timeIn
             };
 
-            // Add vehicle to vehiclesIn collection
+            // Add vehicle to vehiclesIn and specific (2-wheel/4-wheel) collections
             await vehiclesInRef.doc(transactionId).set(vehicleInData);
+            await specificVehicleRef.doc(transactionId).set(vehicleInData);
             await parkingLogRef.doc(transactionId).set({
                 ...vehicleInData,
                 timeOut: null
@@ -161,7 +167,6 @@ async function handleVehicleEntry(vehicleData) {
         return { message: 'Internal server error' };
     }
 }
-
 
 
 // Handle vehicle exit
@@ -180,9 +185,14 @@ async function handleVehicleExit(vehicleData) {
             const doc = snapshot.docs[0];
             const vehicleData = doc.data();
             const date = new Date();
-            
-            // Use the Philippine Time Zone (PHT - UTC+8)
             const timeOut = date.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
+
+            const vehicleType = vehicleData.vehicleType;
+            const collectionName = vehicleType === '2-wheeler' ? 'vehicleTwo' : 'vehicleFour';
+
+            // Remove from vehiclesIn and specific (2-wheel/4-wheel) collections
+            await doc.ref.delete();
+            await db.collection(collectionName).doc(vehicleData.transactionId).delete();
 
             const vehicleOutData = {
                 transactionId: vehicleData.transactionId,
@@ -190,16 +200,14 @@ async function handleVehicleExit(vehicleData) {
                 vehicleOwner: vehicleData.vehicleOwner,
                 contactNumber: vehicleData.contactNumber,
                 userType: vehicleData.userType,
-                vehicleType: vehicleData.vehicleType,
+                vehicleType,
                 vehicleColor: vehicleData.vehicleColor,
                 date: vehicleData.date,
                 timeIn: vehicleData.timeIn,
                 timeOut
             };
 
-            await doc.ref.delete();
             await db.collection('vehiclesOut').add(vehicleOutData);
-
             const parkingLogRef = db.collection('parkingLog').doc(vehicleData.transactionId);
             await parkingLogRef.update({ timeOut });
 
